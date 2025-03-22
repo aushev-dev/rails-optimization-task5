@@ -78,9 +78,9 @@ result = Sync do
     c2 = SEMAPHORE_C.async{ c(ab2.wait) }
     c3 = SEMAPHORE_C.async{ c(ab3.wait) }
     collect_sorted([c1.wait, c2.wait, c3.wait])
-  end.wait
+  end
 
-  a(c123)
+  a(c123.wait)
 end
 
 total_time = Time.now - start
