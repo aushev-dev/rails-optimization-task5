@@ -1,7 +1,6 @@
 require 'openssl'
 require 'faraday'
 require 'async'
-require 'async/barrier'
 require 'async/semaphore'
 
 OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
@@ -43,33 +42,35 @@ end
 SEMAPHORE_A = Async::Semaphore.new(3) # максимум 3 одновременных запроса типа A
 SEMAPHORE_B = Async::Semaphore.new(2) # ма  ксимум 2 одновременных запроса типа B
 SEMAPHORE_C = Async::Semaphore.new(1) # максимум 1 запрос типа C
-VALID_RESULT = "0bbe9ecf251ef4131dd43e1600742cfb"
-VALID_DURATION = 7
+EXPECTED_HASH = "0bbe9ecf251ef4131dd43e1600742cfb"
+MAX_EXECUTION_TIME = 7
 
 start = Time.now
 result = Sync do
   ab1 = Async do
+    b1 = SEMAPHORE_B.async{ b(1) } # так как запросы B выполняются дольше (2 секунды),
+                                   # их нужно запускать первыми, чтобы они начали выполняться как можно раньше
+                                   # и не блокировали остальные операции в конце
     a11 = SEMAPHORE_A.async{ a(11) }
     a12 = SEMAPHORE_A.async{ a(12) }
     a13 = SEMAPHORE_A.async{ a(13) }
-    b1 = SEMAPHORE_B.async{ b(1) }
 
     "#{collect_sorted([a11.wait, a12.wait, a13.wait])}-#{b1.wait}"
   end
 
   ab2 = Async do
+    b2 = SEMAPHORE_B.async{ b(2) }
     a21 = SEMAPHORE_A.async{ a(21) }
     a22 = SEMAPHORE_A.async{ a(22) }
     a23 = SEMAPHORE_A.async{ a(23) }
-    b2 = SEMAPHORE_B.async{ b(2) }
     "#{collect_sorted([a21.wait, a22.wait, a23.wait])}-#{b2.wait}"
   end
 
   ab3 = Async do
+    b3 = SEMAPHORE_B.async{ b(3) }
     a31 = SEMAPHORE_A.async{ a(31) }
     a32 = SEMAPHORE_A.async{ a(32) }
     a33 = SEMAPHORE_A.async{ a(33) }
-    b3 = SEMAPHORE_B.async{ b(3) }
     "#{collect_sorted([a31.wait, a32.wait, a33.wait])}-#{b3.wait}"
   end
 
@@ -85,6 +86,6 @@ end
 
 total_time = Time.now - start
 puts "FINISHED in #{total_time}s."
-puts "VALID DURATION: #{total_time < VALID_DURATION}"
+puts "VALID DURATION: #{total_time < MAX_EXECUTION_TIME}"
 puts "RESULT = #{result}"
-puts "VALID: #{result==VALID_RESULT}"
+puts "VALID RESULT: #{result==EXPECTED_HASH}"
